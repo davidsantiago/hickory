@@ -1,7 +1,8 @@
 (ns hickory.core
   (:require [hickory.utils :as utils]
             [clojure.zip :as zip]
-            [goog.string :as gstring]))
+            [goog.string :as gstring]
+            [goog.dom.xml :as gxml]))
 
 ;;
 ;; Protocols
@@ -94,6 +95,8 @@
                                                    (map as-hiccup (aget this "childNodes"))))))
                       Text (utils/html-escape (aget this "wholeText")))))
 
+
+
 (extend-protocol HickoryRepresentable
   object
   (as-hickory [this] (condp = (aget this "nodeType")
@@ -115,6 +118,26 @@
                                            (into [] (map as-hickory
                                                          (aget this "childNodes"))))}
                        Text (aget this "wholeText"))))
+
+(defn as-hickory-xml [this] (condp = (aget this "nodeType")
+                       Attribute [(keyword (aget this "name")) (aget this "value")]
+                       Comment {:type :comment
+                                :content [(aget this "data")]}
+                       Document {:type :document
+                                 :content (not-empty
+                                            (into [] (map as-hickory-xml
+                                                          (aget this "childNodes"))))}
+                       DocumentType {:type :document-type
+                                     :attrs {:name (aget this "name")
+                                             :publicid (aget this "publicId")
+                                             :systemid (aget this "systemId")}}
+                       Element {:type :element
+                                :attrs (not-empty (into {} (map as-hickory-xml (aget this "attributes"))))
+                                :tag (keyword (aget this "tagName"))
+                                :content (not-empty
+                                           (into [] (map as-hickory-xml
+                                                         (aget this "childNodes"))))}
+                       Text (aget this "wholeText")))
 
 (defn extract-doctype
   [s]
@@ -158,3 +181,7 @@
    each be passed as input to as-hiccup or as-hickory."
   [s]
   (aget (parse s) "body" "childNodes"))
+
+(defn parse-xml
+  [s]
+  (gxml/loadXml s))

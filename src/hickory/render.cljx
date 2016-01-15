@@ -61,6 +61,33 @@
            (ex-info (str "Not a valid node: " (pr-str dom)) {:dom dom})
            e))))))
 
+(defn hickory-to-xml
+  [dom]
+  (if (string? dom)
+    (utils/html-escape dom)
+    (try
+      (case (:type dom)
+          :document
+          (str "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+               (apply str (map hickory-to-xml (:content dom))))
+          :element
+          (if-not (empty? (:content dom))
+           (str "<" (name (:tag dom))
+                (apply str (map render-hickory-attribute (:attrs dom)))
+                ">"
+                (apply str (map hickory-to-xml (:content dom)))
+                "</" (name (:tag dom)) ">")
+           (str "<" (name (:tag dom))
+                (apply str (map render-hickory-attribute (:attrs dom)))
+                "/>"))
+          :comment
+          (str "<!--" (apply str (:content dom)) "-->"))
+      (catch #+clj IllegalArgumentException #+cljs js/Error e
+        (throw
+         (if (utils/starts-with #+clj (.getMessage e) #+cljs (aget e "message") "No matching clause: ")
+           (ex-info (str "Not a valid node: " (pr-str dom)) {:dom dom})
+           e))))))
+
 ;;
 ;; Hiccup to HTML
 ;;
